@@ -1,70 +1,126 @@
+
 Add-Type -AssemblyName System.Windows.Forms
-[System.Windows.Forms.Application]::EnableVisualStyles()
+Add-Type -AssemblyName System.Drawing
+
+# === FUNZIONI PING TWEAKS ===
+
+function Set-PingTweaks {
+    $params = @{
+        "EnableICMPRedirect"         = 1
+        "EnablePMTUDiscovery"        = 1
+        "Tcp1323Opts"                = 0
+        "TcpMaxDupAcks"              = 2
+        "TcpTimedWaitDelay"          = 32
+        "GlobalMaxTcpWindowSize"     = 8760
+        "TcpWindowSize"              = 8760
+        "MaxConnectionsPerServer"    = 0
+        "MaxUserPort"                = 65534
+        "SackOpts"                   = 0
+        "DefaultTTL"                 = 64
+    }
+
+    foreach ($name in $params.Keys) {
+        Reg.exe add "HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" /v $name /t REG_DWORD /d $params[$name] /f | Out-Null
+    }
+
+    Reg.exe add "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile" /v "NetworkThrottlingIndex" /t REG_SZ /d "ffffffff" /f | Out-Null
+}
+
+# === GUI ===
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Pannello Tweak ZZTWI"
-$form.Size = New-Object System.Drawing.Size(400,400)
+$form.Text = "Pannello Tweaks Avanzati"
+$form.Size = New-Object System.Drawing.Size(800,600)
 $form.StartPosition = "CenterScreen"
+$form.BackColor = [System.Drawing.Color]::FromArgb(25, 25, 112) # Blu scuro stile PowerShell
 
-$checkboxes = @{}
+$tabControl = New-Object System.Windows.Forms.TabControl
+$tabControl.Size = New-Object System.Drawing.Size(760,460)
+$tabControl.Location = New-Object System.Drawing.Point(10,10)
 
-$features = @{
-    "Telemetry" = "Disattiva Telemetria"
-    "Cortana" = "Disattiva Cortana"
-    "OneDrive" = "Disattiva OneDrive"
-    "GameDVR" = "Disattiva GameDVR"
-    "Update" = "Disattiva Windows Update"
-    "Defender" = "Disattiva Windows Defender"
-    "Performance" = "Ottimizzazioni Performance"
-}
+# === TAB PRINCIPALE ===
+$tabMain = New-Object System.Windows.Forms.TabPage
+$tabMain.Text = "Tweaks Generali"
+$tabMain.BackColor = $form.BackColor
 
-$i = 0
-foreach ($key in $features.Keys) {
-    $cb = New-Object System.Windows.Forms.CheckBox
-    $cb.Text = $features[$key]
-    $cb.AutoSize = $true
-    $cb.Location = New-Object System.Drawing.Point(30, 30 + ($i * 30))
-    $form.Controls.Add($cb)
-    $checkboxes[$key] = $cb
-    $i++
-}
+$listBoxTweaks = New-Object System.Windows.Forms.CheckedListBox
+$listBoxTweaks.Size = New-Object System.Drawing.Size(720,350)
+$listBoxTweaks.Location = New-Object System.Drawing.Point(10,10)
+$listBoxTweaks.ForeColor = "Black"
+$listBoxTweaks.BackColor = "White"
 
-$button = New-Object System.Windows.Forms.Button
-$button.Text = "Applica"
-$button.Location = New-Object System.Drawing.Point(150, 300)
-$button.Add_Click({
-    if ($checkboxes["Telemetry"].Checked) {
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force
-    }
-    if ($checkboxes["Cortana"].Checked) {
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowCortana" -Value 0 -Type DWord -Force
-    }
-    if ($checkboxes["OneDrive"].Checked) {
-        Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\OneDrive" -Name "DisableFileSyncNGSC" -Value 1 -Type DWord -Force
-    }
-    if ($checkboxes["GameDVR"].Checked) {
-        Set-ItemProperty -Path "HKCU:\System\GameConfigStore" -Name "GameDVR_Enabled" -Value 0
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\GameDVR" -Name "AllowGameDVR" -Value 0 -Type DWord -Force
-    }
-    if ($checkboxes["Update"].Checked) {
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU" -Name "NoAutoUpdate" -Value 1 -Type DWord -Force
-        Stop-Service -Name "wuauserv" -Force -ErrorAction SilentlyContinue
-        Set-Service -Name "wuauserv" -StartupType Disabled
-    }
-    if ($checkboxes["Defender"].Checked) {
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender" -Name "DisableAntiSpyware" -Value 1 -Type DWord -Force
-        Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection" -Name "DisableRealtimeMonitoring" -Value 1 -Type DWord -Force
-    }
-    if ($checkboxes["Performance"].Checked) {
-        Set-ItemProperty -Path "HKCU:\Control Panel\Desktop" -Name "MenuShowDelay" -Value 10
-        powercfg -h off
-        bcdedit /set useplatformclock true
-    }
+$tweaks = @(
+    "Crea Punto di Ripristino",
+    "Disattiva Telemetria",
+    "Disattiva Cortana",
+    "Ottimizza Servizi",
+    "Aumenta Performance",
+    "Disattiva Windows Defender",
+    "Disattiva OneDrive",
+    "Disattiva notifiche",
+    "Abilita Modalità Prestazioni Massime"
+)
+$tweaks | ForEach-Object { $listBoxTweaks.Items.Add($_) }
 
-    [System.Windows.Forms.MessageBox]::Show("✅ Tweaks applicati!", "Completato", 'OK', 'Information')
+$applyBtn = New-Object System.Windows.Forms.Button
+$applyBtn.Text = "Applica Selezionati"
+$applyBtn.Size = New-Object System.Drawing.Size(200,30)
+$applyBtn.Location = New-Object System.Drawing.Point(20, 370)
+$applyBtn.ForeColor = "White"
+$applyBtn.BackColor = "DarkBlue"
+$applyBtn.Add_Click({
+    foreach ($index in $listBoxTweaks.CheckedIndices) {
+        $selected = $listBoxTweaks.Items[$index]
+        switch ($selected) {
+            "Crea Punto di Ripristino" { Checkpoint-Computer -Description "Punto di Ripristino" -RestorePointType "MODIFY_SETTINGS" }
+            "Disattiva Telemetria" { Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force }
+            "Disattiva Cortana" { Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowCortana" -Value 0 -Type DWord -Force }
+            "Ottimizza Servizi" { Stop-Service -Name "DiagTrack" -Force -ErrorAction SilentlyContinue; Set-Service -Name "DiagTrack" -StartupType Disabled }
+            "Aumenta Performance" { powercfg -h off; bcdedit /set useplatformclock true }
+            "Disattiva Windows Defender" { Set-MpPreference -DisableRealtimeMonitoring $true }
+            "Disattiva OneDrive" { taskkill /f /im OneDrive.exe; Start-Sleep -Seconds 2; & "$env:SystemRoot\SysWOW64\OneDriveSetup.exe" /uninstall }
+            "Disattiva notifiche" { Set-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\PushNotifications" -Name "ToastEnabled" -Value 0 -Type DWord }
+            "Abilita Modalità Prestazioni Massime" { powercfg -duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 }
+        }
+    }
+    [System.Windows.Forms.MessageBox]::Show("Tweaks Applicati", "Completato")
 })
 
-$form.Controls.Add($button)
+$tabMain.Controls.Add($listBoxTweaks)
+$tabMain.Controls.Add($applyBtn)
+$tabControl.TabPages.Add($tabMain)
+
+# === TAB PING TWEAKS ===
+$tabPing = New-Object System.Windows.Forms.TabPage
+$tabPing.Text = "Ping Tweaks"
+$tabPing.BackColor = $form.BackColor
+
+$listBoxPing = New-Object System.Windows.Forms.CheckedListBox
+$listBoxPing.Size = New-Object System.Drawing.Size(720,350)
+$listBoxPing.Location = New-Object System.Drawing.Point(10,10)
+$listBoxPing.ForeColor = "Black"
+$listBoxPing.BackColor = "White"
+
+1..10 | ForEach-Object { $listBoxPing.Items.Add("Ping $_") }
+
+$applyPingBtn = New-Object System.Windows.Forms.Button
+$applyPingBtn.Text = "Applica Ping Tweaks"
+$applyPingBtn.Size = New-Object System.Drawing.Size(200,30)
+$applyPingBtn.Location = New-Object System.Drawing.Point(20, 370)
+$applyPingBtn.ForeColor = "White"
+$applyPingBtn.BackColor = "DarkBlue"
+$applyPingBtn.Add_Click({
+    if ($listBoxPing.CheckedItems.Count -gt 0) {
+        Set-PingTweaks
+        [System.Windows.Forms.MessageBox]::Show("Ping tweaks applicati.", "Completato")
+    }
+})
+
+$tabPing.Controls.Add($listBoxPing)
+$tabPing.Controls.Add($applyPingBtn)
+$tabControl.TabPages.Add($tabPing)
+
+# === AVVIO FINALE ===
+$form.Controls.Add($tabControl)
 $form.Topmost = $true
-$form.Add_Shown({$form.Activate()})
-[void]$form.ShowDialog()
+$form.ShowDialog()
