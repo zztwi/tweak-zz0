@@ -1,0 +1,53 @@
+function Show-Menu {
+    Clear-Host
+    Write-Host "========== PANNELLO TWEAK ==========" -ForegroundColor Cyan
+    Write-Host "1. Disattiva Telemetria"
+    Write-Host "2. Disattiva Cortana"
+    Write-Host "3. Ottimizza Servizi"
+    Write-Host "4. Aumenta Performance"
+    Write-Host "5. Esci"
+    Write-Host "===================================="
+}
+
+function Disable-Telemetry {
+    Write-Host "Disattivando Telemetria..."
+    Set-ItemProperty -Path "HKLM:\Software\Policies\Microsoft\Windows\DataCollection" -Name "AllowTelemetry" -Value 0 -Type DWord -Force
+    Write-Host "Fatto." -ForegroundColor Green
+    Pause
+}
+
+function Disable-Cortana {
+    Write-Host "Disattivando Cortana..."
+    Set-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows\Windows Search" -Name "AllowCortana" -Value 0 -Type DWord -Force
+    Write-Host "Fatto." -ForegroundColor Green
+    Pause
+}
+
+function Optimize-Services {
+    Write-Host "Ottimizzando servizi..."
+    Stop-Service -Name "DiagTrack" -Force -ErrorAction SilentlyContinue
+    Set-Service -Name "DiagTrack" -StartupType Disabled
+    Write-Host "Fatto." -ForegroundColor Green
+    Pause
+}
+
+function Boost-Performance {
+    Write-Host "Applicando tweaks per performance..."
+    powercfg -h off
+    bcdedit /set useplatformclock true
+    Write-Host "Fatto." -ForegroundColor Green
+    Pause
+}
+
+do {
+    Show-Menu
+    $choice = Read-Host "Scegli un'opzione"
+    switch ($choice) {
+        "1" { Disable-Telemetry }
+        "2" { Disable-Cortana }
+        "3" { Optimize-Services }
+        "4" { Boost-Performance }
+        "5" { break }
+        default { Write-Host "Scelta non valida" -ForegroundColor Red; Pause }
+    }
+} while ($true)
